@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Coffee, LifeBuoy, UserCog, Download, LayoutDashboard, Package, Percent, Plus, ScrollText, Search, Share2, Users, Zap, ChevronRight } from 'lucide-react'
+import { Coffee, Gift, LifeBuoy, Megaphone, UserCog, Download, LayoutDashboard, Package, Percent, Plus, ScrollText, Search, Share2, Users, Zap, ChevronRight } from 'lucide-react'
 import { api, Cat, fmt, guessPlan, Plan, Promo, Reward } from './api'
 import { BarBoard, PaySettings, Staff } from './bar'
 import { BAR_ORDERS } from './features'
 import { SupportAdmin } from './support'
+import { AdminBell, CardsAdmin, ClientActions, FreezeSettings, NewsAdmin, PrizeRedeemCard } from './admin2'
 import { kzt, N } from './lib'
 import { act, Confirm, Badge, Btn, Card, cx, csv, Empty, Field, Input, Modal, num, PageHead, Select, Shell, Table, Tabs, useAsync } from './ui'
 
@@ -39,11 +40,11 @@ function Overview({ go }: { go: (k: string) => void }) {
 function Redeem() {
   const [code, setCode] = useState(''), [p, setP] = useState<any>(null), [err, setErr] = useState('')
   const find = (c: string) => { setCode(c); setErr(''); if (c.length < 4) return setP(null); api.preview(c).then(setP).catch(e => { setP(null); setErr(e.message) }) }
-  return <div><PageHead title="Списание" /><div className="max-w-md"><Card title="Код клиента"><div className="space-y-3">
+  return <div><PageHead title="Списание" /><div className="max-w-md space-y-4"><Card title="Код клиента"><div className="space-y-3">
     <Input value={code} onChange={e => find(num(e.target.value).slice(0, 4))} inputMode="numeric" autoFocus className="!h-14 text-center text-3xl tracking-[0.4em] font-semibold" placeholder="0000" />
     {err && <div className="text-red-400 text-[13px]">{err}</div>}
     {p && <div className="border border-line rounded-lg divide-y divide-line">{[['Клиент', p.client], ['Баланс', N(p.balance) + ' Bonus'], ['Товар', `${p.reward} · ${kzt(p.price)}`], ['Списать Bonus', N(p.bonus)], ['Клиент доплачивает', kzt(p.price - p.bonus)]].map(([a, b]) => <div key={a} className="flex justify-between px-3 py-2"><span className="text-mute">{a}</span><b className="font-medium">{b}</b></div>)}</div>}
-    {p && <Btn className="w-full !h-10" onClick={() => act(async () => { const n = await api.confirm(code); return `${p.plan ? 'Продление оформлено. ' : ''}Списано ${N(n)} Bonus. К оплате ${kzt(p.price - n)}` }, () => { setP(null); setCode('') })}>{p.plan ? 'Принять оплату и продлить' : 'Списать'}</Btn>}</div></Card></div></div>
+    {p && <Btn className="w-full !h-10" onClick={() => act(async () => { const n = await api.confirm(code); return `${p.plan ? 'Продление оформлено. ' : ''}Списано ${N(n)} Bonus. К оплате ${kzt(p.price - n)}` }, () => { setP(null); setCode('') })}>{p.plan ? 'Принять оплату и продлить' : 'Списать'}</Btn>}</div></Card><PrizeRedeemCard /></div></div>
 }
 function ClientDrawer({ c, onClose, reload }: { c: any; onClose: () => void; reload: () => void }) {
   const [d, ld] = useAsync(() => api.clientDetail(c.id), 0, [c.id]), [tab, setTab] = useState('buy'), [plans] = useAsync(api.plans), [pid, setPid] = useState(''), [price, setPrice] = useState(''), [pur, setPur] = useState(''), [busy, setBusy] = useState(false)
@@ -54,6 +55,7 @@ function ClientDrawer({ c, onClose, reload }: { c: any; onClose: () => void; rel
   return <Modal drawer title={c.full_name} onClose={onClose}>
     <div className="grid grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden">{[['Bonus', N(c.balance)], ['Покупки', c.purchases], ['Код друга', c.referral_code]].map(([a, b]) => <div key={a} className="bg-bg p-3"><div className="text-xs text-mute">{a}</div><div className="font-semibold mt-0.5">{b}</div></div>)}</div>
     <div className="flex items-center justify-between text-[13px]"><span className="text-mute">{c.phone ?? 'Телефон не указан'}</span>{status(c.left)}</div>
+    <ClientActions c={c} done={done} />
     <Card title="Оформить / продлить абонемент"><div className="space-y-2"><Select className="w-full" value={pid} onChange={e => pick(e.target.value)}>{act0.map(p => <option key={p.id} value={p.id}>{p.name} · {kzt(p.price)}</option>)}</Select>
       <div className="flex items-center gap-2"><Input value={price} onChange={e => setPrice(num(e.target.value))} /><span className="text-xs text-mute whitespace-nowrap">{curP ? `${curP.days} дн. · ${curP.annual ? '+10 000 Bonus' : '+5% Bonus'}` : ''}</span></div>
       <Btn disabled={busy || !pid || !price} onClick={() => { setBusy(true); act(async () => `Абонемент оформлен, начислено ${N(await api.sellPlan(c.id, pid, +price))} Bonus`, done).finally(() => setBusy(false)) }}>Оформить</Btn></div></Card>
@@ -86,7 +88,7 @@ function Store() {
     <div className="mt-8"><h2 className="text-lg font-semibold mb-3">Категории</h2><Card pad={false}>{(cats ?? []).map(c => <div key={c.id} className="flex items-center justify-between px-4 h-11 border-t first:border-t-0 border-line"><span className={c.active ? '' : 'text-mute line-through'}>{c.name}</span><span className="inline-flex gap-1">
       <Btn v="ghost" onClick={() => { const n = window.prompt('Новое название', c.name); if (n && n.trim()) act(async () => { await api.updateCat(c.id, { name: n.trim() }); return 'Сохранено' }, loadC) }}>Переименовать</Btn><Btn v="ghost" onClick={() => act(async () => { await api.updateCat(c.id, { active: !c.active }); return 'Готово' }, loadC)}>{c.active ? 'Скрыть' : 'Показать'}</Btn><Btn v="danger" onClick={() => setDelC(c)}>Удалить</Btn></span></div>)}
       <div className="flex gap-2 p-3 border-t border-line"><Input placeholder="Новая категория (кофе, напитки, спортпит…)" value={cn} onChange={e => setCn(e.target.value)} /><Btn disabled={!cn.trim()} onClick={() => act(async () => { await api.addCat(cn.trim()); return 'Категория добавлена' }, () => { setCn(''); loadC() })}>Добавить</Btn></div></Card></div>
-    {BAR_ORDERS && <PaySettings />}<Plans />
+    {BAR_ORDERS && <PaySettings />}<Plans /><FreezeSettings />
     {del && <Confirm title="Удалить товар?" text={`«${del.title}» будет удалён навсегда. История операций и заказов сохранится. Если товар нужно просто убрать из магазина, используйте «Скрыть».`} onClose={() => setDel(null)} onYes={() => act(async () => { await api.deleteReward(del.id); return 'Товар удалён' }, load)} />}
     {delC && <Confirm title="Удалить категорию?" text={`Категория «${delC.name}» будет удалена. Товары останутся, но попадут в «Без категории».`} onClose={() => setDelC(null)} onYes={() => act(async () => { await api.deleteCat(delC.id); return 'Категория удалена' }, () => { loadC(); load() })} />}
     {ed && <Modal title={ed.id ? 'Изменить товар' : 'Новый товар'} onClose={() => setEd(null)}><Field l="Название"><Input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field><Field l="Описание (необязательно)"><Input value={f.desc} onChange={e => setF({ ...f, desc: e.target.value })} /></Field>
@@ -95,14 +97,15 @@ function Store() {
 }
 function Plans() {
   const [l, load] = useAsync(api.plans), [ed, setEd] = useState<Partial<Plan> | null>(null), [f, setF] = useState<any>({})
-  const open = (x: Plan | null) => { setEd(x ?? {}); setF({ name: x?.name ?? '', days: String(x?.days ?? 30), price: String(x?.price ?? ''), pct: String(x?.max_bonus_pct ?? 10), annual: x?.annual ? 'y' : 'n' }) }
-  const save = () => act(async () => { const v = { name: f.name, days: +f.days, price: +f.price, max_bonus_pct: Math.min(+f.pct, 100), annual: f.annual === 'y' }; if (ed?.id) await api.updatePlan(ed.id, v); else await api.addPlan(v); return 'Сохранено' }, () => { setEd(null); load() })
+  const open = (x: Plan | null) => { setEd(x ?? {}); setF({ name: x?.name ?? '', days: String(x?.days ?? 30), price: String(x?.price ?? ''), pct: String(x?.max_bonus_pct ?? 10), annual: x?.annual ? 'y' : 'n', fd: x?.freeze_days == null ? '' : String(x.freeze_days) }) }
+  const save = () => act(async () => { const v = { name: f.name, days: +f.days, price: +f.price, max_bonus_pct: Math.min(+f.pct, 100), annual: f.annual === 'y', freeze_days: f.fd === '' ? null : +f.fd }; if (ed?.id) await api.updatePlan(ed.id, v); else await api.addPlan(v); return 'Сохранено' }, () => { setEd(null); load() })
   return <div className="mt-8"><div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">Тарифы абонементов</h2><Btn onClick={() => open(null)}><Plus size={14} />Добавить тариф</Btn></div>
-    <Card pad={false}><Table rows={l ?? []} cols={[{ h: 'Тариф', r: x => <b className="font-medium">{x.name}</b> }, { h: 'Срок', r: x => `${x.days} дн.` }, { h: 'Цена', r: x => kzt(x.price) }, { h: 'Bonus', r: x => `до ${x.max_bonus_pct}%` }, { h: 'Начисление', r: x => x.annual ? '+10 000' : '+5%' }, { h: 'Статус', r: x => x.active ? <Badge t="green">Активен</Badge> : <Badge>Скрыт</Badge> },
+    <Card pad={false}><Table rows={l ?? []} cols={[{ h: 'Тариф', r: x => <b className="font-medium">{x.name}</b> }, { h: 'Срок', r: x => `${x.days} дн.` }, { h: 'Цена', r: x => kzt(x.price) }, { h: 'Bonus', r: x => `до ${x.max_bonus_pct}%` }, { h: 'Начисление', r: x => x.annual ? '+10 000' : '+5%' }, { h: 'Заморозка', r: x => x.freeze_days == null ? 'по умолч.' : `${x.freeze_days} дн.`, cls: 'hidden md:table-cell' }, { h: 'Статус', r: x => x.active ? <Badge t="green">Активен</Badge> : <Badge>Скрыт</Badge> },
       { h: '', cls: 'text-right', r: x => <span className="inline-flex gap-1"><Btn v="secondary" onClick={() => open(x)}>Изменить</Btn><Btn v="ghost" onClick={() => act(async () => { await api.updatePlan(x.id, { active: !x.active }); return 'Готово' }, load)}>{x.active ? 'Скрыть' : 'Показать'}</Btn></span> }]} /></Card>
     {ed && <Modal title={ed.id ? 'Изменить тариф' : 'Новый тариф'} onClose={() => setEd(null)}><Field l="Название"><Input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></Field>
       <div className="grid grid-cols-2 gap-3"><Field l="Срок, дней"><Input value={f.days} onChange={e => setF({ ...f, days: num(e.target.value) })} /></Field><Field l="Цена, ₸"><Input value={f.price} onChange={e => setF({ ...f, price: num(e.target.value) })} /></Field>
-        <Field l="Макс. покрытие Bonus, %"><Input value={f.pct} onChange={e => setF({ ...f, pct: num(e.target.value) })} /></Field><Field l="Тип"><Select className="w-full" value={f.annual} onChange={e => setF({ ...f, annual: e.target.value })}><option value="n">Обычный (+5% Bonus)</option><option value="y">Годовой (+10 000 Bonus)</option></Select></Field></div>
+        <Field l="Макс. покрытие Bonus, %"><Input value={f.pct} onChange={e => setF({ ...f, pct: num(e.target.value) })} /></Field><Field l="Тип"><Select className="w-full" value={f.annual} onChange={e => setF({ ...f, annual: e.target.value })}><option value="n">Обычный (+5% Bonus)</option><option value="y">Годовой (+10 000 Bonus)</option></Select></Field>
+        <Field l="Заморозка, дней (пусто = по умолчанию)"><Input value={f.fd} onChange={e => setF({ ...f, fd: num(e.target.value) })} placeholder="по умолчанию" /></Field></div>
       <Btn disabled={!f.name || !f.days || !f.price} onClick={save}>Сохранить</Btn></Modal>}</div>
 }
 const PK: Record<string, string> = { bonus: 'Bonus', discount: 'Скидка', info: 'Информация' }
@@ -131,7 +134,7 @@ function Ops() {
     <Card pad={false}><Table size={15} rows={rows} cols={[{ h: 'Дата', r: x => fmt(x.created_at) }, { h: 'Клиент', r: x => x.profiles?.full_name }, { h: 'Тип', r: x => <Badge t={kindTone(x.kind)}>{KIND[x.kind]}</Badge> }, { h: 'Описание', r: x => x.note ?? '—', cls: 'hidden md:table-cell' }, { h: 'Bonus', r: x => <Amt v={x.amount} />, cls: 'text-right' }]} /></Card></div>
 }
 export default function Admin({ who, role }: { who: string; role: string }) {
-  const items: [string, string, any][] = [['overview', 'Обзор', LayoutDashboard], ['redeem', 'Списание', Zap], ['clients', 'Клиенты', Users], ['store', 'Магазин', Package], ['promos', 'Акции', Percent], ...(BAR_ORDERS ? [['orders', 'Заказы бара', Coffee]] as [string, string, any][] : []), ['refs', 'Рефералы', Share2], ['ops', 'Операции', ScrollText], ['support', 'Поддержка', LifeBuoy], ['staff', 'Сотрудники', UserCog]]
+  const items: [string, string, any][] = [['overview', 'Обзор', LayoutDashboard], ['redeem', 'Списание', Zap], ['clients', 'Клиенты', Users], ['store', 'Магазин', Package], ['promos', 'Акции', Percent], ['cards', 'Карточки', Gift], ['news', 'Объявления', Megaphone], ...(BAR_ORDERS ? [['orders', 'Заказы бара', Coffee]] as [string, string, any][] : []), ['refs', 'Рефералы', Share2], ['ops', 'Операции', ScrollText], ['support', 'Поддержка', LifeBuoy], ['staff', 'Сотрудники', UserCog]]
   const [k, setK] = useState('overview')
-  return <Shell items={items} cur={k} set={setK} who={who}>{k === 'overview' ? <Overview go={setK} /> : k === 'redeem' ? <Redeem /> : k === 'clients' ? <Clients /> : k === 'store' ? <Store /> : k === 'promos' ? <Promos /> : k === 'refs' ? <Refs /> : k === 'orders' ? <BarBoard /> : k === 'staff' ? <Staff role={role} /> : k === 'support' ? <SupportAdmin role={role} /> : <Ops />}</Shell>
+  return <Shell items={items} cur={k} set={setK} who={who} extra={<AdminBell go={setK} />}>{k === 'overview' ? <Overview go={setK} /> : k === 'redeem' ? <Redeem /> : k === 'clients' ? <Clients /> : k === 'store' ? <Store /> : k === 'promos' ? <Promos /> : k === 'cards' ? <CardsAdmin /> : k === 'news' ? <NewsAdmin /> : k === 'refs' ? <Refs /> : k === 'orders' ? <BarBoard /> : k === 'staff' ? <Staff role={role} /> : k === 'support' ? <SupportAdmin role={role} /> : <Ops />}</Shell>
 }

@@ -6,7 +6,7 @@ import { act, Badge, Btn, Card, cx, Empty, Field, Input, Modal, PageHead, Table,
 
 // Тема обращения → получатель определяется в базе (create_ticket): «Приложение» → DEV, остальное → ADMIN
 const CATS: [string, string][] = [['bonus', 'Бонусы'], ['membership', 'Абонемент'], ['payment', 'Оплата'], ['visits', 'Посещения'], ['app', 'Приложение'], ['other', 'Другое']]
-const CAT: Record<string, string> = { ...Object.fromEntries(CATS), password_reset: 'Восстановление пароля' }
+const CAT: Record<string, string> = { ...Object.fromEntries(CATS), password_reset: 'Восстановление пароля', message: 'Сообщение от клуба' }
 const waLink = (phone: string) => { const d = phone.replace(/\D/g, '').replace(/^8/, '7'); return d.length >= 11 ? `https://wa.me/${d}` : '' }
 
 
@@ -23,7 +23,7 @@ function Thread({ t, staff, onChange }: { t: Ticket; staff: boolean; onChange: (
       <div className="text-[11px] text-mute mb-0.5">{who} · {when(at)}</div><div className="text-[13px] whitespace-pre-wrap break-words">{body}</div></div></div>
   return <div className="space-y-3">
     <div className="space-y-2">
-      <Bubble mine={!staff} who={staff ? (t.client_name ?? 'Клиент') : 'Вы'} body={t.description} at={t.created_at} />
+      {t.category !== 'message' && <Bubble mine={!staff} who={staff ? (t.client_name ?? 'Клиент') : 'Вы'} body={t.description} at={t.created_at} />}
       {m === null ? <Empty>Загрузка…</Empty> : m.map(x => <Bubble key={x.id} mine={x.from_staff === staff} who={x.from_staff ? (staff ? 'Вы' : 'Поддержка Formula') : (staff ? (t.client_name ?? 'Клиент') : 'Вы')} body={x.body} at={x.created_at} />)}
       {!staff && m !== null && !m.some(x => x.from_staff) && !closed && <div className="text-xs text-mute text-center">Ответ появится здесь, мы пришлём уведомление 🔔</div>}
     </div>
@@ -102,10 +102,10 @@ export function PushCard({ compact }: { compact?: boolean }) {
 
 /* ---------------- Клиент: центр уведомлений ---------------- */
 const day = (t: string) => { const d = new Date(t), n = new Date(); return d.toDateString() === n.toDateString() ? 'Сегодня' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) }
-export function Bell2({ count, reload, go }: { count: number; reload: () => void; go: (tab: string) => void }) {
+export function Bell2({ count, reload, go, map }: { count: number; reload: () => void; go: (tab: string) => void; map?: Record<string, string> }) {
   const [open, setOpen] = useState(false), [l, setL] = useState<Notif[] | null>(null)
   const show = () => { setOpen(true); api.notifications().then(setL).catch(() => setL([])) }
-  const click = (x: Notif) => { if (!x.is_read) api.markRead([x.id]).then(reload); const to = x.type === 'subscription_expiring' ? 'renew' : x.type === 'new_promotion' ? 'home' : x.type === 'referral_bonus' ? 'history' : x.type.startsWith('support') ? 'support' : ''; if (to) { setOpen(false); go(to) } else setL(ls => ls?.map(y => y.id === x.id ? { ...y, is_read: true } : y) ?? null) }
+  const click = (x: Notif) => { if (!x.is_read) api.markRead([x.id]).then(reload); const to = (map && map[x.type]) ?? ({ subscription_expiring: 'renew', new_promotion: 'home', referral_bonus: 'history', scratch_card: 'cards', announcement: 'news', freeze: 'freeze' } as Record<string, string>)[x.type] ?? (x.type.startsWith('support') ? 'support' : ''); if (to) { setOpen(false); go(to) } else setL(ls => ls?.map(y => y.id === x.id ? { ...y, is_read: true } : y) ?? null) }
   return <><button onClick={show} className="relative h-8 w-8 grid place-items-center rounded-lg text-mute hover:text-white hover:bg-hover" aria-label="Уведомления"><Bell size={17} />{count > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-gold text-black text-[10px] font-semibold grid place-items-center">{count > 9 ? '9+' : count}</span>}</button>
     {open && <Modal drawer title="Уведомления" onClose={() => setOpen(false)}>
       <PushCard compact />

@@ -1,5 +1,5 @@
-import { ReactNode, useEffect, useRef, useState } from 'react'
-import { ChevronRight, Clock, History, LifeBuoy, LogOut, RefreshCw, Share2, ShoppingBag, User, Users, Zap } from 'lucide-react'
+import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ChevronRight, Clock, Gift, History, LifeBuoy, LogOut, Megaphone, RefreshCw, Share2, ShoppingBag, Snowflake, User, Users, Zap } from 'lucide-react'
 import { api, dmy, Snap } from './api'
 import { logout, N } from './lib'
 import { Badge, Btn, cx, Empty, Install, Modal, toast, useAsync } from './ui'
@@ -27,22 +27,44 @@ export const RoundBtn = ({ onClick, label, children }: { onClick: () => void; la
   <button onClick={onClick} aria-label={label} className="press grid place-items-center w-10 h-10 rounded-full border border-line bg-surface text-[#F5F5F5] hover:bg-hover">{children}</button>
 
 /* ---------- Главная ---------- */
+/* фон карточек «Ваш баланс» / «Тебе +2 000»: жёлтые глянцевые складки + 3D-графика справа */
+const CardArt = ({ img, cls }: { img: string; cls: string }) => <>
+  <span aria-hidden className="bal-art pointer-events-none absolute inset-0" style={{ backgroundImage: `url(${import.meta.env.BASE_URL}bal-bg.webp)` }} />
+  <span aria-hidden className="bal-glow pointer-events-none absolute right-[2%] top-[4%] w-40 h-40 rounded-full" />
+  <img src={`${import.meta.env.BASE_URL}${img}`} alt="" aria-hidden draggable={false} className={cx('bal-crown pointer-events-none select-none absolute', cls)} />
+</>
+/* Карточка баланса: размер суммы подбирается так, чтобы цифры всегда помещались левее короны */
+function useBalanceFit(text: string) {
+  const card = useRef<HTMLButtonElement>(null), probe = useRef<HTMLSpanElement>(null), [fs, setFs] = useState(42)
+  useLayoutEffect(() => {
+    const c = card.current, p = probe.current; if (!c || !p) return
+    const run = () => { const crown = c.querySelector<HTMLElement>('.bal-crown'), pad = parseFloat(getComputedStyle(c).paddingLeft) || 24
+      const room = (crown ? crown.offsetLeft : c.clientWidth) - pad - 4, w = p.offsetWidth
+      if (w > 0 && room > 0) setFs(Math.max(24, Math.min(42, Math.floor(56 * room / w)))) }
+    run(); if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(run); ro.observe(c); ro.observe(p); return () => ro.disconnect()   // и при смене ширины, и после загрузки шрифта
+  }, [text])
+  return { card, probe, fs }
+}
 export function HomeScreen({ s, go, right, banner, recent }: { s: Snap; go: (tab: string) => void; right: ReactNode; banner: ReactNode; recent: ReactNode }) {
-  const bal = useCountUp(s.balance), [batches, setBatches] = useState(false), [promos, setPromos] = useState(false)
+  const bal = useCountUp(s.balance), fit = useBalanceFit(N(s.balance)), [batches, setBatches] = useState(false), [promos, setPromos] = useState(false)
   const pend = s.batches.some(b => b.pending), first = s.batches.filter(b => b.expires).sort((a, b) => +new Date(a.expires!) - +new Date(b.expires!))[0]
   const life = first ? `Действуют до ${dmy(first.expires!)} · ${first.days} дн.` : pend ? 'Активируются при первом использовании' : 'Бонусы действуют 90 дней'
-  const left = s.daysLeft, mStatus = left === null ? null : left <= 0 ? ['Истёк', 'bg-red-500/15 text-red-300'] : left <= 7 ? [`${left} дн.`, 'bg-amber-400/15 text-amber-300'] : ['Активен', 'bg-emerald-500/15 text-emerald-300']
+  const left = s.daysLeft, mStatus = left === null ? null : s.frozenUntil ? ['Заморожен', 'bg-sky-400/15 text-sky-300'] : left <= 0 ? ['Истёк', 'bg-red-500/15 text-red-300'] : left <= 7 ? [`${left} дн.`, 'bg-amber-400/15 text-amber-300'] : ['Активен', 'bg-emerald-500/15 text-emerald-300']
   const promo = s.promos[0]
   return <div className="max-w-lg mx-auto">
     <ScreenHead title="Formula Bonus" sub="Твои бонусы и награды" right={right} />
     {banner}
-    <button onClick={() => setBatches(true)} style={delay(1)} className="rise press card-gold relative overflow-hidden w-full text-left rounded-[28px] p-6 pb-5 shadow-[0_20px_60px_-25px_rgba(255,200,31,.55)]">
-      <Rings />
-      <div className="relative text-[15px] font-medium text-black/70">Ваш баланс</div>
-      <div className="relative flex items-end gap-3 mt-1"><span className="text-[56px] leading-none font-extrabold tracking-tight">{N(bal)}</span><span className="text-2xl font-bold text-black/75 pb-1.5">Bonus</span></div>
-      <div className="relative mt-5 inline-flex items-center gap-2 rounded-full bg-[#111] text-[#F5F5F5] pl-1.5 pr-4 py-1.5 text-[13px] font-medium">
-        <span className="grid place-items-center w-6 h-6 rounded-full border-2 border-gold text-gold"><Clock size={12} strokeWidth={2.5} /></span>{life}</div>
-      {s.reserved > 0 && <div className="relative mt-2 text-[13px] text-black/70">Зарезервировано под заказ: {N(s.reserved)}</div>}
+    <button ref={fit.card} onClick={() => setBatches(true)} style={delay(1)} className="rise press bal-card relative overflow-hidden w-full text-left rounded-[24px] px-5 pt-4 pb-3.5">
+      <CardArt img="crown.webp" cls="right-[3%] top-[8%] w-[34%] max-w-[150px]" />
+      <div className="relative z-[1] text-[14px] font-medium text-white/85">Ваш баланс</div>
+      <span ref={fit.probe} aria-hidden className="bal-num invisible absolute left-0 top-0 text-[56px] leading-none font-extrabold tracking-tight">{N(s.balance)}</span>
+      <div className="bal-num relative z-[1] h-10 mt-0.5 flex items-end" style={{ fontSize: fit.fs }}><span className="leading-none font-extrabold tracking-tight text-white">{N(bal)}</span></div>
+      <div className="relative z-[1] text-[20px] leading-6 mt-0.5 font-extrabold text-gold">Bonus</div>
+      <div className="relative z-[1] mt-2 flex items-center gap-2"><span className="bal-pill inline-flex items-center gap-2 min-w-0 rounded-full text-white pl-1.5 pr-3.5 py-1.5 text-[clamp(11px,3.4vw,13px)] font-semibold">
+        <span className="grid place-items-center w-6 h-6 rounded-full border-2 border-gold text-gold shrink-0"><Clock size={12} strokeWidth={2.5} /></span><span className="min-w-0">{life.split(' · ')[0]}{life.includes(' · ') && <span className="whitespace-nowrap"> · {life.split(' · ')[1]}</span>}</span></span>
+        <ChevronRight size={20} className="ml-auto shrink-0 text-white/85" /></div>
+      {s.reserved > 0 && <div className="relative z-[1] mt-2 text-[13px] text-white/70">Зарезервировано под заказ: {N(s.reserved)}</div>}
     </button>
 
     <button onClick={() => go('renew')} style={delay(2)} className="rise press card-dark w-full text-left rounded-3xl p-4 mt-3 flex items-center gap-4">
@@ -88,13 +110,17 @@ export function FriendsScreen({ s, back }: { s: Snap; back: () => void }) {
   }
   const copyCode = () => navigator.clipboard?.writeText(s.code).then(() => toast('Код скопирован')).catch(() => {})
   const steps: [string, string][] = [['Отправь приглашение другу', 'Поделись ссылкой или кодом из приложения'], ['Друг совершает покупку', 'Первая покупка в клубе'], ['Получи бонусы', '+2 000 на твой баланс']]
-  const friends = r?.friends ?? [], done = friends.filter(f => f.status === 'confirmed').length
+  const friends = r?.friends ?? [], done = friends.filter(f => f.status === 'confirmed').length, earned = useCountUp(r?.earned ?? 0)   // живой счётчик на карточке
   return <div className="max-w-lg mx-auto">
     <ScreenHead title="Пригласи друга" sub="Делись клубом — получай бонусы" right={<RoundBtn onClick={back} label="Назад"><ChevronRight size={18} className="rotate-180" /></RoundBtn>} />
-    <div style={delay(1)} className="rise card-gold relative overflow-hidden rounded-[28px] p-6 shadow-[0_20px_60px_-25px_rgba(255,200,31,.55)]">
-      <Rings /><div className="relative text-[13px] font-medium text-black/60">Тебе</div>
-      <div className="relative text-[56px] leading-none font-extrabold tracking-tight mt-1">+2 000</div>
-      <div className="relative mt-3 font-semibold text-black/80">Bonus за приглашённого друга</div><div className="relative text-[13px] text-black/60">после его первой покупки</div>
+    <div style={delay(1)} className="rise bal-card relative overflow-hidden rounded-[24px] px-5 pt-4 pb-3.5">
+      <CardArt img="people.webp" cls="right-[3%] top-[4%] w-[36%] max-w-[176px]" />
+      <div className="relative z-[1] text-[14px] font-medium text-white/85">Тебе</div>
+      <div className="relative z-[1] h-10 mt-0.5 flex items-end text-[42px] leading-none font-extrabold tracking-tight text-white">+2 000</div>
+      <div className="relative z-[1] text-[20px] leading-6 mt-0.5 font-extrabold text-gold">Bonus</div>
+      <div className="relative z-[1] mt-2"><span className="bal-pill inline-flex items-center gap-2 rounded-full text-white pl-1.5 pr-3.5 py-1.5 text-[clamp(11px,3.4vw,13px)] font-semibold">
+        <span className="grid place-items-center w-6 h-6 rounded-full border-2 border-gold text-gold shrink-0"><Users size={12} strokeWidth={2.5} /></span>
+        <span className="min-w-0">{friends.length ? <>Приглашено друзей: {friends.length}<span className="whitespace-nowrap"> · {earned > 0 ? <span className="text-gold">+{N(earned)}</span> : 'ждём покупку'}</span></> : 'За друга после его первой покупки'}</span></span></div>
     </div>
     <div className="space-y-3 mt-4">{steps.map(([t, d], i) => <div key={t} style={delay(i + 2)} className="rise card-dark rounded-2xl p-4 flex items-center gap-4">
       <span className="grid place-items-center w-9 h-9 rounded-full bg-gold text-black font-bold shrink-0">{i + 1}</span><span><span className="block font-semibold">{t}</span><span className="block text-[13px] text-mute">{d}</span></span></div>)}</div>
@@ -124,6 +150,9 @@ export function ProfileScreen({ s, go, children }: { s: Snap; go: (tab: string) 
     <div className="rise card-dark rounded-2xl divide-y divide-line overflow-hidden">
       <Row icon={<RefreshCw size={18} />} label="Продлить абонемент" onClick={() => go('renew')} />
       <Row icon={<Users size={18} />} label="Пригласить друга" onClick={() => go('friends')} />
+      <Row icon={<Gift size={18} />} label="Подарочные карточки" onClick={() => go('cards')} />
+      <Row icon={<Snowflake size={18} />} label="Заморозить абонемент" onClick={() => go('freeze')} />
+      <Row icon={<Megaphone size={18} />} label="Объявления клуба" onClick={() => go('news')} />
       <Row icon={<LifeBuoy size={18} />} label="Поддержка" onClick={() => go('support')} />
     </div>
     {children}

@@ -49,7 +49,8 @@ const installNav = () => {
     if (!top && st.fb === 'modal') history.back()                              // устаревшая запись закрытого окна — пропускаем
   })
 }
-export function Modal({ title, onClose, children, drawer }: { title: string; onClose: () => void; children: ReactNode; drawer?: boolean }) {
+// хук: окно/оверлей становится записью в истории — «Назад» (свайп, кнопка Android) закрывает его, а не приложение
+export function useBackClose(onClose: () => void) {
   const close = useRef(onClose); close.current = onClose
   useEffect(() => {
     installNav()
@@ -62,6 +63,9 @@ export function Modal({ title, onClose, children, drawer }: { title: string; onC
       if (!me.popped && history.state?.id === me.id) history.back()            // закрыли кнопкой — убираем свою запись
     }
   }, [])
+}
+export function Modal({ title, onClose, children, drawer }: { title: string; onClose: () => void; children: ReactNode; drawer?: boolean }) {
+  useBackClose(onClose)
   return createPortal(<div data-modal className="fixed inset-0 z-[70] flex bg-black/70 backdrop-blur-[2px] fb-fade" onMouseDown={onClose}><div onMouseDown={e => e.stopPropagation()} className={cx('bg-surface border-line overflow-y-auto overscroll-contain', drawer ? 'ml-auto h-full w-full max-w-lg border-l fb-slide pb-[env(safe-area-inset-bottom)]' : 'm-auto w-full max-w-md max-h-[90vh] border rounded-2xl fb-pop')}>
     <div className="flex items-center justify-between px-4 h-12 border-b border-line sticky top-0 bg-surface z-10 pt-[env(safe-area-inset-top)] box-content"><div className="font-medium">{title}</div><Btn v="ghost" className="!px-2" onClick={onClose} aria-label="Закрыть"><X size={16} /></Btn></div><div className="p-4 space-y-4">{children}</div></div></div>, document.body)
 }

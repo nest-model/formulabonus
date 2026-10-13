@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { ClipboardList, History, Home, ShoppingBag, Sparkles, User, Users } from 'lucide-react'
+import { ChevronRight, ClipboardList, History, Home, Megaphone, ShoppingBag, Snowflake, Sparkles, User, Users } from 'lucide-react'
+import { CardsBanner, CardsScreen, ScratchOverlay } from './scratch'
+import { FreezeScreen } from './freeze'
+import { Announcement, ScratchCardT } from './api'
 import { FriendsScreen, HomeScreen, ProfileScreen, RoundBtn, ScreenHead } from './home'
 import { Bell2, PushCard, Support } from './support'
 import { enablePush } from './lib'
@@ -35,6 +38,14 @@ export default function Client() {
   useEffect(() => { if (upd) try { localStorage.setItem('fb-update-seen', CLIENT_UPDATE.id) } catch { /* ignore */ } }, []) // eslint-disable-line
   const [birth, setBirth] = useState<string | null>(null)
   useEffect(() => { api.expireMine().then(load).catch(() => {}) }, []) // eslint-disable-line
+  // подарочные карточки и объявления: загрузка при открытии и при возврате в приложение
+  const [cards, loadCards] = useAsync(api.myCards), [news, loadNews] = useAsync(api.announcements), [openCard, setOpenCard] = useState<ScratchCardT | null>(null)
+  useEffect(() => { const f = () => { if (document.visibilityState === 'visible') { loadCards(); loadNews() } }; document.addEventListener('visibilitychange', f); return () => document.removeEventListener('visibilitychange', f) }, []) // eslint-disable-line
+  useEffect(() => {   // карточка за регистрацию открывается сама — один раз
+    const w = cards?.find(c => c.source === 'welcome' && !c.seen_at); if (!w) return
+    try { if (sessionStorage.getItem('fb-welcome-card') === w.id) return; sessionStorage.setItem('fb-welcome-card', w.id) } catch { /* ignore */ }
+    setTimeout(() => setOpenCard(w), 700)
+  }, [cards])
   if (!s) return <div className="p-8 text-center text-mute">Загрузка…</div>
   const plans = pl ?? [], cur = plans.length ? guessPlan(plans, lm ?? undefined) : undefined, chosen = plans.find(p => p.id === (sel || cur?.id)), cbonus = chosen ? Math.min(maxBonus(chosen.price, chosen.max_bonus_pct), s.balance) : 0
   const goTab = (k: string) => { if (k !== tab || code) history.pushState({ fb: 'tab', tab: k }, ''); setTab(k); setCode(null); window.scrollTo({ top: 0 }) }
@@ -44,7 +55,11 @@ export default function Client() {
   const pend = s.batches.some(b => b.pending), first = s.batches.filter(b => b.expires).sort((a, b) => +new Date(a.expires!) - +new Date(b.expires!))[0]
     const Row = ({ h }: { h: Snap['tx'][0] }) => <div className="flex justify-between items-center border-t first:border-t-0 border-line px-4 py-3"><div><div className="font-medium">{h.text}</div><div className="text-xs text-mute">{h.date}{h.sub ? ' · ' + h.sub : ''}</div></div><b className={cx('text-[15px]', h.amount > 0 ? 'text-emerald-400' : '')}>{h.amount > 0 ? '+' : ''}{N(h.amount)}</b></div>
   const items: [string, string, any][] = [['home', 'Главная', Home], ['store', 'Магазин', ShoppingBag], ...(BAR_ORDERS ? [['orders', 'Заказы', ClipboardList]] as [string, string, any][] : []), ['friends', 'Друзья', Users], ['history', 'История', History], ['profile', 'Профиль', User]]
-  const banner = upd && <button onClick={() => setUpdOpen(true)} className="rise press w-full mb-3 text-left rounded-2xl border border-gold/50 bg-gold/10 px-4 py-3 flex items-center gap-3"><Sparkles size={18} className="text-gold shrink-0" /><span className="flex-1"><b className="text-gold">ОБНОВЛЕНИЕ!</b> <span className="text-[13px]">Нажмите, чтобы узнать подробнее</span></span><span onClick={e => { e.stopPropagation(); setUpd(false) }} className="text-mute px-1" aria-label="Скрыть">✕</span></button>
+  const updBanner = upd && <button onClick={() => setUpdOpen(true)} className="rise press w-full mb-3 text-left rounded-2xl border border-gold/50 bg-gold/10 px-4 py-3 flex items-center gap-3"><Sparkles size={18} className="text-gold shrink-0" /><span className="flex-1"><b className="text-gold">ОБНОВЛЕНИЕ!</b> <span className="text-[13px]">Нажмите, чтобы узнать подробнее</span></span><span onClick={e => { e.stopPropagation(); setUpd(false) }} className="text-mute px-1" aria-label="Скрыть">✕</span></button>
+  const newCards = (cards ?? []).filter(c => !c.seen_at), topNews = (news ?? []).find(n => n.active) as Announcement | undefined
+  const banner = <>{updBanner}{newCards.length > 0 && <CardsBanner count={newCards.length} onOpen={() => setOpenCard(newCards[newCards.length - 1])} />}
+    {topNews && <button onClick={() => goTab('news')} className="rise press card-dark w-full mb-3 text-left rounded-2xl px-4 py-3 flex items-center gap-3"><span className="grid place-items-center w-10 h-10 rounded-xl bg-gold/15 text-gold shrink-0"><Megaphone size={18} /></span>
+      <span className="flex-1 min-w-0"><span className="block font-semibold truncate">{topNews.title}</span>{topNews.body && <span className="block text-[13px] text-mute truncate">{topNews.body}</span>}</span><ChevronRight size={16} className="text-mute" /></button>}</>
   return <Shell bottom items={items} cur={tab} set={goTab} who={s.name || 'Клиент'}>
     {updOpen && <Modal title={CLIENT_UPDATE.title} onClose={() => { setUpdOpen(false); setUpd(false) }}><ul className="space-y-2 text-[13px]">{CLIENT_UPDATE.items.map(x => <li key={x} className="flex gap-2"><span className="text-gold">•</span><span>{x}</span></li>)}</ul><Btn className="w-full" onClick={() => { setUpdOpen(false); setUpd(false) }}>Понятно</Btn></Modal>}
     {tab === 'support' && <div className="max-w-lg mx-auto"><Support /></div>}
@@ -53,11 +68,19 @@ export default function Client() {
       recent={<><div className="flex items-center justify-between mb-3"><h2 className="text-xl font-bold">Последние действия</h2><button onClick={() => goTab('history')} className="text-gold font-semibold text-[13px]">Все</button></div>
         <div className="card-dark rounded-2xl overflow-hidden">{s.tx.slice(0, 3).map(h => <Row key={h.id} h={h} />)}{!s.tx.length && <Empty>Операций пока нет</Empty>}</div></>} />}
     {tab === 'friends' && <FriendsScreen s={s} back={() => goTab('home')} />}
+    {tab === 'cards' && <CardsScreen cards={cards} open={setOpenCard} />}
+    {tab === 'freeze' && <FreezeScreen go={goTab} reloadSnap={load} />}
+    {tab === 'news' && <div className="max-w-lg mx-auto"><ScreenHead title="Объявления" sub="Новости и важная информация клуба" />
+      {news === null ? <Empty>Загрузка…</Empty> : !news.length ? <Empty>Объявлений пока нет</Empty> : <div className="space-y-3">{news.map((n, i) => <div key={n.id} style={{ animationDelay: `${Math.min(i, 6) * 60}ms` }} className="rise card-dark rounded-2xl p-4">
+        <div className="flex items-start gap-3"><span className="grid place-items-center w-10 h-10 rounded-xl bg-gold/15 text-gold shrink-0"><Megaphone size={18} /></span><span className="min-w-0"><span className="block font-bold">{n.title}</span><span className="block text-xs text-mute">{dmy(n.created_at)}{n.pinned ? ' · закреплено' : ''}</span></span></div>
+        {n.body && <div className="text-[14px] text-[#d8d8d8] whitespace-pre-wrap mt-3">{n.body}</div>}</div>)}</div>}</div>}
+    {openCard && <ScratchOverlay card={openCard} onClose={() => { setOpenCard(null); loadCards(); load() }} />}
     {tab === 'renew' && <div className="max-w-lg mx-auto space-y-3"><ScreenHead title="Продление абонемента" sub={s.plan ? `Сейчас: ${s.plan}${s.daysLeft !== null && s.daysLeft > 0 ? ` · осталось ${s.daysLeft} дн.` : ''}` : 'Выберите подходящий срок'} />
       {code ? CodeCard : <><div className="text-mute text-[13px]">Выберите срок — цена подставится автоматически. Bonus покроют часть стоимости.</div>
         <div className="grid sm:grid-cols-2 gap-3">{plans.map((p, i) => <button key={p.id} onClick={() => setSel(p.id)} style={{ animationDelay: `${60 + i * 60}ms` }} className={cx('rise press text-left rounded-2xl border p-4', chosen?.id === p.id ? 'border-gold bg-gold/5' : 'border-line bg-surface')}><div className="flex justify-between gap-2"><b className="font-medium">{p.name}</b>{cur?.id === p.id && <Badge t="gold">Ваш тариф</Badge>}</div><div className="text-xl font-semibold mt-1">{kzt(p.price)}</div><div className="text-xs text-mute mt-0.5">{p.days} дн. · Bonus покроют до {kzt(maxBonus(p.price, p.max_bonus_pct))} · {p.annual ? '+10 000 бонусов' : '+5% бонусов'}</div></button>)}</div>
         {chosen && <Card><div className="space-y-1.5">{[['Тариф', chosen.name], ['Цена', kzt(chosen.price)], ['Спишется Bonus', N(cbonus)]].map(([a, b]) => <div key={a} className="flex justify-between"><span className="text-mute">{a}</span><b className="font-medium">{b}</b></div>)}<div className="flex justify-between border-t border-line pt-2 mt-2"><span>К оплате</span><b className="text-gold text-lg">{kzt(chosen.price - cbonus)}</b></div>
-          <Btn className="w-full mt-3" onClick={() => api.renew(chosen.id).then(showCode).catch(e => toast(e.message, false))}>Получить код продления</Btn></div></Card>}</>}</div>}
+          <Btn className="w-full mt-3" onClick={() => api.renew(chosen.id).then(showCode).catch(e => toast(e.message, false))}>Получить код продления</Btn></div></Card>}
+        {s.daysLeft !== null && s.daysLeft > 0 && <button onClick={() => goTab('freeze')} className="press w-full rounded-2xl border border-sky-300/20 bg-sky-400/5 px-4 py-3 text-left flex items-center gap-3"><Snowflake size={18} className="text-sky-300" /><span className="flex-1 text-[13px]"><b>Нужна пауза?</b> Заморозьте абонемент — дни не сгорят</span><ChevronRight size={16} className="text-mute" /></button>}</>}</div>}
     {tab === 'history' && <div className="max-w-lg mx-auto space-y-3"><ScreenHead title="История" sub="Начисления и списания бонусов" />
       <div className="rise flex gap-1.5" style={{ animationDelay: '60ms' }}>{[['all', 'Все'], ['in', 'Начисления'], ['out', 'Списания']].map(([k, l]) => <Btn key={k} v={flt === k ? 'primary' : 'secondary'} onClick={() => setFlt(k)}>{l}</Btn>)}</div>
       <div key={flt} className="rise card-dark rounded-2xl overflow-hidden" style={{ animationDelay: '120ms' }}>{s.tx.filter(h => flt === 'all' || (flt === 'in' ? h.amount > 0 : h.amount < 0)).map(h => <Row key={h.id} h={h} />)}{!s.tx.length && <Empty>Операций пока нет</Empty>}</div></div>}

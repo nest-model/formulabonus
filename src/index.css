@@ -16,3 +16,89 @@ button,a,tr{transition:background-color .15s,color .15s,border-color .15s}
 .rise-kids>*{animation:fb-rise .5s cubic-bezier(.2,.7,.2,1) both}
 .rise-kids>*:nth-child(2){animation-delay:60ms}.rise-kids>*:nth-child(3){animation-delay:120ms}.rise-kids>*:nth-child(4){animation-delay:180ms}.rise-kids>*:nth-child(5){animation-delay:240ms}.rise-kids>*:nth-child(n+6){animation-delay:300ms}
 @media (prefers-reduced-motion:reduce){.rise-kids>*{animation:none}}
+
+/* ---- карточки «Ваш баланс» и «Тебе +2 000»: чёрная карта с жёлтыми глянцевыми складками и 3D-графикой ---- */
+.bal-card{background:#060606;border:1px solid rgba(255,210,28,.42);box-shadow:inset 0 1px 0 rgba(255,236,170,.16),0 18px 48px -24px rgba(255,196,0,.6);color:#fff}
+.bal-art{background-position:right center;background-size:cover;background-repeat:no-repeat;
+  -webkit-mask-image:linear-gradient(100deg,transparent 32%,rgba(0,0,0,.55) 52%,#000 74%);mask-image:linear-gradient(100deg,transparent 32%,rgba(0,0,0,.55) 52%,#000 74%)}
+.bal-card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:1;background:linear-gradient(115deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,.02) 20%,transparent 38%)}
+.bal-card::after{content:"";position:absolute;top:-40%;bottom:-40%;width:34%;left:-60%;pointer-events:none;z-index:1;transform:rotate(18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,240,190,.14),transparent);animation:bal-glint 7s ease-in-out 1.2s infinite}
+@keyframes bal-glint{0%{left:-60%}22%,100%{left:135%}}
+.bal-glow{background:radial-gradient(closest-side,rgba(255,200,30,.5),rgba(255,170,0,.14) 55%,transparent 75%);filter:blur(8px)}
+.bal-num{white-space:nowrap}
+.bal-crown{filter:drop-shadow(0 10px 16px rgba(0,0,0,.6));animation:bal-float 6s ease-in-out infinite}
+@keyframes bal-float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-4px) rotate(1.5deg)}}
+.bal-pill{background:rgba(0,0,0,.86);border:1px solid rgba(255,255,255,.08)}
+@media (prefers-reduced-motion:reduce){.bal-card::after,.bal-crown{animation:none}}
+
+/* ---- скретч-карточки ---- */
+.sc-backdrop{background:radial-gradient(70% 55% at 50% 42%,rgba(255,190,40,.22),rgba(0,0,0,.92) 70%),#000;animation:fb-fade .3s ease both}
+.sc-rays{position:fixed;left:50%;top:44%;width:180vmax;height:180vmax;margin:-90vmax 0 0 -90vmax;pointer-events:none;opacity:.55;
+  background:repeating-conic-gradient(from 0deg,rgba(255,210,28,.13) 0deg 6deg,transparent 6deg 18deg);-webkit-mask-image:radial-gradient(circle,#000 0%,transparent 55%);mask-image:radial-gradient(circle,#000 0%,transparent 55%);animation:sc-spin 40s linear infinite}
+.sc-rays-win{opacity:.95;animation-duration:12s}
+@keyframes sc-spin{to{transform:rotate(360deg)}}
+.sc-title{animation:fb-rise .5s .15s cubic-bezier(.2,.7,.2,1) both}
+.sc-card{background:linear-gradient(160deg,#1c1508,#0a0805 60%);border:1px solid rgba(255,214,130,.35);box-shadow:0 30px 80px -20px rgba(255,180,30,.45),inset 0 1px 0 rgba(255,232,170,.25);
+  transform-style:preserve-3d;animation:sc-in .95s cubic-bezier(.17,.89,.32,1.15) both}
+.sc-card::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgba(255,240,200,.18) 50%,transparent 65%);background-size:250% 100%;animation:sc-shine 3.2s ease-in-out 1s infinite}
+@keyframes sc-in{0%{opacity:0;transform:perspective(900px) translateY(90px) rotateX(60deg) rotateY(-24deg) scale(.55)}60%{opacity:1;transform:perspective(900px) translateY(-10px) rotateX(-8deg) rotateY(5deg) scale(1.04)}100%{transform:none}}
+@keyframes sc-shine{0%{background-position:150% 0}45%,100%{background-position:-60% 0}}
+.sc-card-win{animation:sc-win 1.6s ease-in-out infinite alternate}
+@keyframes sc-win{from{box-shadow:0 30px 80px -20px rgba(255,180,30,.45),0 0 0 0 rgba(255,210,28,0)}to{box-shadow:0 30px 90px -10px rgba(255,190,40,.7),0 0 0 6px rgba(255,210,28,.12)}}
+.sc-pop{animation:sc-pop .7s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes sc-pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+.sc-gold-text{background:linear-gradient(180deg,#FFF5CF,#FFD55E 50%,#D9971F);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sc-result{animation:fb-rise .5s .35s cubic-bezier(.2,.7,.2,1) both}
+.sc-mini-new,.sc-banner{background:radial-gradient(120% 140% at 100% 0%,#FFE36B 0%,#FFC81F 42%,#E9A200 100%)}
+.sc-mini-new{box-shadow:0 12px 30px -14px rgba(255,190,30,.7);animation:fb-rise .5s cubic-bezier(.2,.7,.2,1) both,sc-pulse 2.4s ease-in-out 1s infinite}
+@keyframes sc-pulse{50%{box-shadow:0 14px 40px -10px rgba(255,200,40,.95)}}
+.sc-mini-shine{position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%);background-size:250% 100%;animation:sc-shine 2.6s ease-in-out infinite}
+/* подарок перед скретч-карточкой: падает → трясётся → крышка слетает, луч света, карточка вылетает из коробки */
+.gb{position:absolute;left:50%;top:50%;width:min(60vw,236px);transform:translate(-50%,-50%);-webkit-tap-highlight-color:transparent;cursor:pointer}
+.gb-in{position:relative;display:block;animation:gb-drop .95s cubic-bezier(.3,1.35,.5,1) both}
+.gb-box{position:relative;display:block;aspect-ratio:522/600;transform-origin:50% 92%;animation:gb-wiggle 2.4s ease-in-out 1.1s infinite}
+.gb-box img{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;user-select:none}
+.gb-glow{position:absolute;left:-30%;right:-30%;top:-20%;bottom:-25%;background:radial-gradient(closest-side,rgba(255,200,40,.42),rgba(255,170,0,.12) 55%,transparent 75%);filter:blur(10px);animation:gb-breathe 2.4s ease-in-out infinite}
+.gb-shadow{position:absolute;left:14%;right:10%;bottom:-3%;height:9%;background:radial-gradient(closest-side,rgba(0,0,0,.75),transparent);filter:blur(3px)}
+.gb-beam{position:absolute;left:14%;right:14%;bottom:64%;height:150%;opacity:0;transform-origin:50% 100%;pointer-events:none;filter:blur(8px);
+  background:linear-gradient(to top,rgba(255,226,120,.95),rgba(255,210,60,.35) 45%,transparent);clip-path:polygon(18% 100%,82% 100%,100% 0,0 0)}
+.gb-hint{position:absolute;left:50%;top:calc(100% + 26px);transform:translateX(-50%);white-space:nowrap;font-size:14px;font-weight:600;color:#FFD21C;animation:gb-hint 1.6s ease-in-out 1s infinite both}
+.gb-opening .gb-box{animation:gb-shake .44s linear both}
+.gb-opening .gb-lid{transform-origin:28% 40%;animation:gb-lid .8s .38s cubic-bezier(.2,.75,.25,1) both}
+.gb-opening .gb-beam{animation:gb-beam 1.1s .46s ease-out both}
+.gb-opening .gb-glow{animation:gb-flash 1s .4s ease-out both}
+.gb-out .gb-in{animation:gb-out .7s .1s ease-in both}
+.gb-out .gb-lid{opacity:0}
+@keyframes gb-drop{0%{transform:translateY(-75vh) rotate(-10deg);opacity:0}55%{transform:translateY(10px) rotate(2deg) scale(1.04,.95);opacity:1}72%{transform:translateY(-8px) rotate(-1deg) scale(.98,1.03)}86%{transform:translateY(2px)}100%{transform:none}}
+@keyframes gb-wiggle{0%,58%,100%{transform:none}62%{transform:rotate(-6deg) translateY(-4px)}66%{transform:rotate(6deg) translateY(-8px)}70%{transform:rotate(-5deg) translateY(-4px)}74%{transform:rotate(3deg)}78%{transform:none}}
+@keyframes gb-shake{0%,100%{transform:none}12%{transform:rotate(-8deg) translateX(-5px)}26%{transform:rotate(8deg) translateX(5px)}40%{transform:rotate(-7deg)}54%{transform:rotate(6deg)}70%{transform:rotate(-3deg) scale(1.05,.94)}85%{transform:scale(.97,1.04)}}
+@keyframes gb-lid{0%{transform:none;opacity:1}30%{transform:translate(-4%,-34%) rotate(-12deg)}100%{transform:translate(-36%,-120%) rotate(-42deg) scale(.9);opacity:0}}
+@keyframes gb-beam{0%{opacity:0;transform:scaleY(.15)}25%{opacity:1;transform:scaleY(1)}100%{opacity:0;transform:scaleY(1.1)}}
+@keyframes gb-flash{0%{transform:scale(1);opacity:1}35%{transform:scale(1.6);opacity:1}100%{transform:scale(1.9);opacity:0}}
+@keyframes gb-breathe{50%{transform:scale(1.08);opacity:.85}}
+@keyframes gb-hint{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes gb-out{to{transform:translateY(38%) scale(.82);opacity:0}}
+.sc-card.sc-fly{animation:sc-fly 1.05s cubic-bezier(.2,.9,.25,1.1) both}
+@keyframes sc-fly{0%{opacity:0;transform:perspective(900px) translateY(-12%) scale(.16) rotateX(45deg) rotateZ(-10deg)}18%{opacity:1}55%{transform:perspective(900px) translateY(-2%) scale(1.02) rotateX(-4deg) rotateZ(1.5deg)}100%{transform:none}}
+@media (prefers-reduced-motion:reduce){.sc-rays,.sc-card,.sc-card::after,.sc-card-win,.sc-pop,.sc-mini-new,.sc-mini-shine,.gb-in,.gb-box,.gb-glow,.gb-hint{animation:none!important}}
+
+/* ---- заморозка ---- */
+.fz-card{background:radial-gradient(90% 70% at 50% 0%,rgba(120,200,255,.22),transparent 70%),linear-gradient(180deg,#0d1b2a 0%,#070d14 100%);border:1px solid rgba(160,215,255,.22);box-shadow:inset 0 1px 0 rgba(200,235,255,.18),0 24px 60px -30px rgba(90,180,255,.45)}
+.fz-orb{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.35),rgba(120,200,255,.18) 45%,rgba(40,90,140,.25) 100%);box-shadow:0 0 0 1px rgba(190,230,255,.3),0 0 50px rgba(120,200,255,.35)}
+.fz-orb-on{animation:fz-glow 2.4s ease-in-out infinite alternate}
+@keyframes fz-glow{to{box-shadow:0 0 0 1px rgba(190,230,255,.5),0 0 80px rgba(140,210,255,.65)}}
+.fz-spin{animation:sc-spin 18s linear infinite}
+.fz-ice-text{background:linear-gradient(180deg,#ffffff 0%,#cdeeff 55%,#7cc4f2 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.fz-num{animation:sc-pop .35s cubic-bezier(.2,1.4,.4,1) both}
+.fz-btn{background:linear-gradient(180deg,#e9f7ff,#9fd6f7);color:#06121d;box-shadow:0 10px 30px -12px rgba(140,210,255,.8)}
+.fz-bar{background:linear-gradient(90deg,#7cc4f2,#e9f7ff)}
+.fz-flake{animation:fz-fall linear infinite}
+@keyframes fz-fall{from{transform:translateY(-20px) rotate(0)}to{transform:translateY(520px) rotate(220deg)}}
+.fz-range{-webkit-appearance:none;appearance:none;height:6px;border-radius:9px;background:rgba(255,255,255,.12);outline:none}
+.fz-range::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:#e9f7ff;box-shadow:0 0 0 6px rgba(140,210,255,.25),0 4px 12px rgba(0,0,0,.4);cursor:pointer}
+.fz-range::-moz-range-thumb{width:26px;height:26px;border:0;border-radius:50%;background:#e9f7ff;box-shadow:0 0 0 6px rgba(140,210,255,.25)}
+.fz-ice{background:radial-gradient(circle at 50% 45%,rgba(220,245,255,.85),rgba(120,200,255,.55) 40%,rgba(10,30,50,.92) 75%);animation:fz-ice 1.9s ease-in-out both}
+@keyframes fz-ice{0%{clip-path:circle(0% at 50% 45%);opacity:1}35%{clip-path:circle(80% at 50% 45%)}80%{opacity:1}100%{clip-path:circle(80% at 50% 45%);opacity:0}}
+.fz-ice-msg{animation:sc-pop .7s .25s cubic-bezier(.2,1.4,.4,1) both}
+@media (prefers-reduced-motion:reduce){.fz-flake,.fz-spin,.fz-orb-on,.fz-num{animation:none}.fz-ice{animation-duration:.8s}}

@@ -8,8 +8,12 @@ export type Cat = { id: string; name: string; sort: number; active: boolean }
 export type Order = { payment_status: string; cash_amount: number; kaspi_payment_url: string | null; id: string; num: number; client_name: string; status: string; pay_method: string; paid: boolean; kaspi_claimed: boolean; total: number; bonus_planned: number; bonus_used: number; comment: string | null; created_at: string; order_items: { title: string; price: number; qty: number }[] }
 const ORD = 'payment_status,cash_amount,kaspi_payment_url,id,num,client_name,status,pay_method,paid,kaspi_claimed,total,bonus_planned,bonus_used,comment,created_at,order_items(title,price,qty)'
 export type Promo = { id: string; title: string; body: string; active: boolean; kind?: string; value?: string; ends_on?: string | null }
-export type Snap = { plan: string | null; endsOn: string | null; birth: string | null; reserved: number; batches: Batch[]; phone: string; promos: Promo[]; name: string; code: string; balance: number; expiring: { amount: number; days: number } | null; daysLeft: number | null; tx: Tx[]; rewards: Reward[] }
-export type Plan = { id: string; name: string; days: number; price: number; annual: boolean; max_bonus_pct: number; active: boolean }
+export type Snap = { frozenUntil: string | null; plan: string | null; endsOn: string | null; birth: string | null; reserved: number; batches: Batch[]; phone: string; promos: Promo[]; name: string; code: string; balance: number; expiring: { amount: number; days: number } | null; daysLeft: number | null; tx: Tx[]; rewards: Reward[] }
+export type Plan = { id: string; name: string; days: number; price: number; annual: boolean; max_bonus_pct: number; active: boolean; freeze_days?: number | null }
+export type ScratchCardT = { id: string; source: string; note: string | null; status: string; won: boolean | null; prize_title: string | null; prize_bonus: number; code: string | null; expires_at: string | null; drawn_at: string | null; seen_at: string | null; created_at: string }
+export type Prize = { id: string; title: string; chance: number; bonus: number; stock: number | null; active: boolean; sort: number }
+export type Announcement = { id: string; title: string; body: string; pinned: boolean; active: boolean; created_at: string; updated_at: string }
+export type FreezeInfo = { membership: { plan: string; ends_on: string } | null; limits?: { max: number; min: number; used: number; left: number }; active?: { starts_on: string; until: string; days: number } | null }
 export const guessPlan = (plans: Plan[], m?: { plan_id?: string | null; annual?: boolean }) => (m && (plans.find(p => p.id === m.plan_id) ?? plans.find(p => p.annual === !!m.annual))) || plans[0]
 export type Preview = { plan?: boolean; code: string; client: string; balance: number; reward: string; price: number; bonus: number }
 export type Ticket = { id: string; type: string; category: string; description: string; status: string; client_name: string | null; phone: string | null; created_at: string }
@@ -48,8 +52,9 @@ export const api = {
       S.from('promos').select('id,title,body,active,kind,value,ends_on').eq('active', true).order('created_at', { ascending: false }),
       S.from('bonus_transactions').select('id,note,remaining,expires_at,activation_pending').eq('client_id', id).gt('remaining', 0).or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`).order('created_at')])
     const reserved = (ok(await S.from('orders').select('bonus_planned').eq('client_id', id).eq('paid', false).neq('status', 'cancelled')) as any[]).reduce((s, x) => s + x.bonus_planned, 0)
+    const fz = await S.from('membership_freezes').select('planned_end').eq('client_id', id).is('ended_on', null).gt('planned_end', new Date().toISOString().slice(0, 10)).order('planned_end', { ascending: false }).limit(1)
     const end = m.data?.[0]?.ends_on, plan = (m.data?.[0] as any)?.plan ?? null
-    return { plan, endsOn: end ?? null, birth: p.data?.birth_date ?? null, phone: p.data?.phone ?? '', promos: (pr.data ?? []) as Promo[], name: p.data?.full_name ?? '', code: p.data?.referral_code ?? '', reserved, balance: Math.max((b.data ?? []).reduce((s: number, x: any) => s + x.remaining, 0) - reserved, 0),
+    return { frozenUntil: (fz.data?.[0] as any)?.planned_end ?? null, plan, endsOn: end ?? null, birth: p.data?.birth_date ?? null, phone: p.data?.phone ?? '', promos: (pr.data ?? []) as Promo[], name: p.data?.full_name ?? '', code: p.data?.referral_code ?? '', reserved, balance: Math.max((b.data ?? []).reduce((s: number, x: any) => s + x.remaining, 0) - reserved, 0),
       batches: (b.data ?? []).map((x: any) => ({ id: x.id, label: x.note ?? '', amount: x.remaining, pending: !!x.activation_pending, expires: x.expires_at ?? null, days: x.expires_at ? Math.max(0, Math.ceil((+new Date(x.expires_at) - Date.now()) / DAY)) : null })),
       expiring: exp14((b.data ?? []).filter((x: any) => x.expires_at).map((x: any) => ({ r: x.remaining, exp: +new Date(x.expires_at) }))),
       daysLeft: end ? Math.ceil((+new Date(end) - Date.now()) / DAY) : null,
@@ -83,7 +88,7 @@ export const api = {
   myReferrals: async () => ok(await S.rpc('my_referrals')) as { earned: number; friends: { name: string; status: string; created_at: string; confirmed_at: string | null }[] },
   myRefs: async () => { const { data: { user } } = await S.auth.getUser(), id = user!.id; const [a, b] = await Promise.all([S.from('referrals').select('status').eq('referrer_id', id), S.from('referrals').select('status').eq('referred_id', id).maybeSingle()]); return { invited: (a.data ?? []) as { status: string }[], asFriend: b.data?.status as string | undefined } },
   sell: async (client: string, plan: string, price: number, days: number, annual = false) => ok(await S.rpc('sell_membership', { p_client: client, p_plan: plan, p_price: price, p_days: days, p_annual: annual })) as number,
-  plans: async () => ok(await S.from('plans').select('id,name,days,price,annual,max_bonus_pct,active').order('sort').order('days')) as Plan[],
+  plans: async () => ok(await S.from('plans').select('id,name,days,price,annual,max_bonus_pct,active,freeze_days').order('sort').order('days')) as Plan[],
   lastMembership: async () => { const { data: { user } } = await S.auth.getUser(); const { data } = await S.from('memberships').select('plan_id,annual').eq('client_id', user!.id).order('starts_on', { ascending: false }).limit(1); return (data?.[0] ?? null) as { plan_id: string | null; annual: boolean } | null },
   renew: async (plan: string) => ok(await S.rpc('create_renewal', { p_plan: plan })) as string,
   sellPlan: async (client: string, plan: string, price: number) => ok(await S.rpc('sell_plan', { p_client: client, p_plan: plan, p_price: price })) as number,
@@ -122,6 +127,33 @@ export const api = {
   markRead: async (ids?: string[]) => { await S.rpc('mark_notifications_read', { p_ids: ids ?? null }) },
   notifyPromo: async (id: string) => ok(await S.rpc('notify_promo', { p_promo: id })) as number,
   setBirth: async (d: string | null) => { const { error } = await S.rpc('set_my_birth_date', { p_date: d || null }); if (error) throw new Error('Проверьте дату рождения') },
+  // ---- подарочные карточки ----
+  myCards: async () => { const { data: { user } } = await S.auth.getUser(); return ok(await S.from('scratch_cards').select('id,source,note,status,won,prize_title,prize_bonus,code,expires_at,drawn_at,seen_at,created_at').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(60)) as ScratchCardT[] },
+  scratchCard: async (id: string) => ok(await S.rpc('scratch_card', { p_card: id })) as { won: boolean; title: string; bonus: number; code: string | null; expires_at: string | null; status: string },
+  cardSeen: async (id: string) => { await S.rpc('card_seen', { p_card: id }) },
+  prizes: async () => (ok(await S.from('prizes').select('id,title,chance,bonus,stock,active,sort').order('sort').order('created_at')) as any[]).map(x => ({ ...x, chance: Number(x.chance) })) as Prize[],
+  addPrize: async (f: Partial<Prize>) => ok(await S.from('prizes').insert(f)),
+  updatePrize: async (id: string, f: Partial<Prize>) => ok(await S.from('prizes').update(f).eq('id', id)),
+  deletePrize: async (id: string) => ok(await S.from('prizes').delete().eq('id', id)),
+  cardStats: async () => ok(await S.rpc('card_stats')) as { issued: number; opened: number; won: number; waiting: number; redeemed: number },
+  giveCard: async (client: string, note: string) => ok(await S.rpc('give_card', { p_client: client, p_note: note })),
+  giveCardAll: async (note: string) => ok(await S.rpc('give_card_all', { p_note: note })) as number,
+  prizePreview: async (code: string) => ok(await S.rpc('prize_preview', { p_code: code })) as { client: string; title: string; expires_at: string },
+  redeemPrize: async (code: string) => ok(await S.rpc('redeem_prize', { p_code: code })) as string,
+  // ---- заморозка ----
+  myFreeze: async () => ok(await S.rpc('my_freeze')) as FreezeInfo,
+  freeze: async (days: number) => ok(await S.rpc('freeze_membership', { p_days: days })) as { until: string; ends_on: string },
+  unfreeze: async () => ok(await S.rpc('unfreeze_membership')) as { returned: number },
+  staffUnfreeze: async (client: string) => ok(await S.rpc('staff_unfreeze', { p_client: client })) as { returned: number },
+  clientFreezes: async (client: string) => ok(await S.from('membership_freezes').select('starts_on,planned_end,ended_on,days,created_at').eq('client_id', client).order('created_at', { ascending: false }).limit(10)) as { starts_on: string; planned_end: string; ended_on: string | null; days: number; created_at: string }[],
+  // ---- объявления ----
+  announcements: async () => ok(await S.from('announcements').select('id,title,body,pinned,active,created_at,updated_at').order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(50)) as Announcement[],
+  addAnnouncement: async (f: Partial<Announcement>) => ok(await S.from('announcements').insert(f).select('id').single()) as { id: string },
+  updateAnnouncement: async (id: string, f: Partial<Announcement>) => ok(await S.from('announcements').update({ ...f, updated_at: new Date().toISOString() }).eq('id', id)),
+  deleteAnnouncement: async (id: string) => ok(await S.from('announcements').delete().eq('id', id)),
+  notifyAnnouncement: async (id: string) => ok(await S.rpc('notify_announcement', { p_id: id })) as number,
+  // ---- написать клиенту ----
+  staffMessage: async (client: string, body: string) => ok(await S.rpc('staff_message', { p_client: client, p_body: body })),
   expireMine: async () => { await S.rpc('expire_my_bonus') },
   accrue: async (client: string, purchase: number) => ok(await S.rpc('accrue_bonus', { p_client: client, p_purchase: purchase, p_pct: 5, p_note: 'Покупка в клубе' })) as number,
   allRewards: async () => (ok(await S.from('rewards').select('id,title,price,max_bonus_pct,active,category_id,description').order('title')) as any[]).map(rw),
